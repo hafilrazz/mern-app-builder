@@ -1,0 +1,160 @@
+# {{app.name}}
+
+A full-stack MERN (MongoDB, Express, React, Node.js) application generated with custom schema architecture, REST APIs, and a responsive frontend dashboard.
+
+---
+
+## 📖 What This Project Does
+
+**{{app.name}}** is a complete, production-ready web application designed to manage and automate business workflows for:
+{{#each entities}}
+- **{{capitalize (pluralize name)}}**: Manage {{lowercase (pluralize name)}} records with full Create, Read, Update, and Delete (CRUD) capabilities, search filtering, and relational tracking.
+{{/each}}
+
+### ✨ Core Features
+- **Modern RESTful API**: Built with Node.js and Express, following standard REST conventions with centralized error handling and health monitoring.
+- **Relational Data Modeling**: Structured with MongoDB & Mongoose schemas enforcing field validations, type constraints, unique indexes, and foreign key references.
+- **Responsive Web Dashboard**: Single-page application built with React 18, Vite, and Tailwind CSS. Features type-aware forms, searchable data tables, pagination, and relational dropdown pickers.
+{{#if app.auth}}
+- **Authentication & Security**: Built-in JSON Web Token (JWT) authentication and bcrypt password hashing, protecting API routes and UI views with role support.
+{{/if}}
+
+---
+
+## 🚀 How to Run the Project
+
+Follow these simple steps to run the backend API server and frontend client on your local machine.
+
+### 1. Prerequisites
+Ensure you have the following installed:
+- **Node.js**: v18.0 or newer ([Download Node.js](https://nodejs.org/))
+- **MongoDB**: Running locally at `mongodb://127.0.0.1:27017` or a cloud [MongoDB Atlas](https://www.mongodb.com/atlas) connection string.
+
+---
+
+### 2. Step-by-Step Setup
+
+#### Step A: Start the Backend Server
+Open a terminal in the project directory:
+
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+- The API server will boot up at **`http://localhost:{{app.port}}`**
+- Verify the server is running by opening: [http://localhost:{{app.port}}/api/health](http://localhost:{{app.port}}/api/health)
+
+#### Step B: Start the Frontend Client
+Open a **second terminal** window in the project directory:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+- The React client will start at **`http://localhost:{{app.clientPort}}`**
+- Open **[http://localhost:{{app.clientPort}}](http://localhost:{{app.clientPort}})** in your web browser to start using the app!
+
+---
+
+## 🎯 How to Use the Application
+
+### 1. Dashboard Overview
+Once you open `http://localhost:{{app.clientPort}}`:
+- View high-level metric cards showing total counts for each entity.
+- Monitor backend API connectivity and system status in real-time.
+
+{{#if app.auth}}
+### 2. Authentication
+- Click **Register** on the top navigation bar to create a new user account.
+- Sign in with your email and password. Your JWT session token is securely stored in `localStorage` and automatically attached to all subsequent API requests.
+- Log out at any time using the user profile menu in the navigation bar.
+{{/if}}
+
+### 3. Managing Entities
+Use the sidebar on the left to navigate to any entity section:
+- **List View (`/entity`)**: View records in a clean tabular layout. Use the search input to filter items across string fields, and navigate with page controls.
+- **Create New (`/entity/new`)**: Click the **New** button to open the type-aware form. Required fields are marked with an asterisk (*). Any related entities will automatically appear as selectable options in dropdown menus.
+- **Detail View (`/entity/:id`)**: Click the eye icon to inspect complete record details, populated relationships, and creation/update timestamps.
+- **Edit & Delete (`/entity/:id/edit`)**: Modify records in place or delete them with confirmation.
+
+---
+
+## 📡 REST API Reference
+
+Base URL: `http://localhost:{{app.port}}/api`
+
+### Health Check
+- `GET /api/health` - Checks database connection state and uptime.
+
+{{#if app.auth}}
+### Authentication Endpoints
+- `POST /api/auth/register` - Register a new account (`name`, `email`, `password`)
+- `POST /api/auth/login` - Authenticate and retrieve a JWT bearer token
+- `GET /api/auth/me` - Retrieve current logged-in user profile (requires `Authorization: Bearer <token>`)
+{{/if}}
+
+{{#each entities}}
+### {{capitalize (pluralize name)}} API (`/api/{{lowercase (pluralize name)}}`)
+
+| Method | Endpoint | Description | Query Parameters |
+|---|---|---|---|
+| `GET` | `/api/{{lowercase (pluralize name)}}` | List all records | `page`, `limit`, `search`, `sort` |
+| `GET` | `/api/{{lowercase (pluralize name)}}/:id` | Get single record by ID | - |
+| `POST` | `/api/{{lowercase (pluralize name)}}` | Create a new record | - |
+| `PUT` | `/api/{{lowercase (pluralize name)}}/:id` | Update an existing record | - |
+| `DELETE` | `/api/{{lowercase (pluralize name)}}/:id` | Delete record by ID | - |
+
+#### Field Schema:
+{{#each fields}}
+- `{{name}}`: `{{type}}`{{#if required}} *(Required)*{{/if}}{{#if unique}} *(Unique)*{{/if}}{{#if defaultValue}} *(Default: `{{defaultValue}}`)*{{/if}}{{#if enumValues}} *(Allowed: `{{#each enumValues}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}`)*{{/if}}
+{{/each}}
+{{#each relations}}
+- `{{name}}`: `ObjectId` referencing `{{capitalize target}}`
+{{/each}}
+
+#### Sample `cURL` to Create {{capitalize entity.name}}:
+```bash
+curl -X POST http://localhost:{{../app.port}}/api/{{lowercase (pluralize name)}} \
+  -H "Content-Type: application/json" \
+  {{#if ../app.auth}}-H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
+  {{/if}}-d '{
+{{#each fields}}
+    "{{name}}": {{#if (eq type "number")}}10{{else if (eq type "boolean")}}true{{else if (eq type "date")}}"2026-01-01"{{else if (eq type "enum")}}"{{enumValues.[0]}}"{{else}}"Sample {{name}}"{{/if}}{{#unless @last}},{{/unless}}
+{{/each}}
+  }'
+```
+
+---
+{{/each}}
+
+## ⚙️ Environment Variables
+
+### Backend (`backend/.env`)
+| Variable | Description | Default |
+|---|---|---|
+| `PORT` | HTTP server port for backend API | `{{app.port}}` |
+| `MONGODB_URI` | Connection URI to MongoDB database | `mongodb://127.0.0.1:27017/{{lowercase app.name}}` |
+| `CLIENT_URL` | Allowed origin for CORS requests | `http://localhost:{{app.clientPort}}` |
+{{#if app.auth}}
+| `JWT_SECRET` | Secret key used for signing session tokens | Auto-generated secret |
+| `JWT_EXPIRES_IN` | Token expiration duration | `7d` |
+{{/if}}
+
+---
+
+## 💡 Troubleshooting & Common Questions
+
+**Q: Backend says `MongoDB connection error: connect ECONNREFUSED 127.0.0.1:27017`**
+- Make sure MongoDB service is running. On Windows, verify in Services (`services.msc`) that `MongoDB Server` is running, or start it via `mongod` in terminal.
+- Alternatively, provide a cloud MongoDB Atlas URI in `backend/.env`.
+
+**Q: Port already in use error (`EADDRINUSE`)**
+- Either free port `{{app.port}}` or change `PORT=...` in `backend/.env`.
+
+---
+
+Generated with ❤️ by **MERN App Builder**.

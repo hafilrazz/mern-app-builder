@@ -1,0 +1,104 @@
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey_change_in_production_{{lowercase app.name}}';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+
+function generateToken(userId) {
+  return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+}
+
+const authController = {
+  /**
+   * POST /api/auth/register
+   */
+  async register(req, res, next) {
+    try {
+      const { email, password, name, ...extraFields } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required.' });
+      }
+
+      const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email is already registered.' });
+      }
+
+      const user = new User({
+        name: name || email.split('@')[0],
+        email: email.toLowerCase().trim(),
+        password,
+        ...extraFields
+      });
+
+      await user.save();
+
+      const token = generateToken(user._id);
+
+      res.status(201).json({
+        success: true,
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /api/auth/login
+   */
+  async login(req, res, next) {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required.' });
+      }
+
+      // Explicitly select password for comparison
+      const user = await User.findOne({ email: email.toLowerCase().trim() });
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid email or password.' });
+      }
+
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Invalid email or password.' });
+      }
+
+      const token = generateToken(user._id);
+
+      res.status(200).json({
+        success: true,
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * GET /api/auth/me
+   */
+  async getMe(req, res) {
+    res.status(200).json({
+      success: true,
+      user: req.user
+    });
+  }
+};
+
+module.exports = authController;

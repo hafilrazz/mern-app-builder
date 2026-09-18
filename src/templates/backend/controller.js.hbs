@@ -1,0 +1,165 @@
+const {{capitalize entity.name}} = require('../models/{{capitalize entity.name}}');
+
+/**
+ * Controller for {{capitalize entity.name}} CRUD operations
+ */
+const {{camelCase entity.name}}Controller = {
+  /**
+   * GET /api/{{lowercase (pluralize entity.name)}}
+   * Retrieve all {{lowercase (pluralize entity.name)}} with pagination, search, and sorting
+   */
+  async getAll(req, res, next) {
+    try {
+      const page = parseInt(req.query.page, 10) || 1;
+      const limit = parseInt(req.query.limit, 10) || 10;
+      const skip = (page - 1) * limit;
+      const sort = req.query.sort || '-createdAt';
+      const search = req.query.search || '';
+
+      const filter = {};
+
+      {{#if searchableFields.length}}
+      if (search) {
+        filter.$or = [
+          {{#each searchableFields}}
+          { {{name}}: { $regex: search, $options: 'i' } },
+          {{/each}}
+        ];
+      }
+      {{/if}}
+
+      // Apply query filters for fields if provided in query string
+      {{#each entity.fields}}
+      if (req.query.{{name}} !== undefined && req.query.{{name}} !== '') {
+        {{#if (eq type "boolean")}}
+        filter.{{name}} = req.query.{{name}} === 'true';
+        {{else}}
+        filter.{{name}} = req.query.{{name}};
+        {{/if}}
+      }
+      {{/each}}
+
+      let query = {{capitalize entity.name}}.find(filter);
+
+      {{#each entity.relations}}
+      {{#if (eq type "belongsTo")}}
+      query = query.populate('{{name}}');
+      {{/if}}
+      {{/each}}
+
+      const [data, total] = await Promise.all([
+        query.sort(sort).skip(skip).limit(limit),
+        {{capitalize entity.name}}.countDocuments(filter)
+      ]);
+
+      res.status(200).json({
+        success: true,
+        data,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit)
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * GET /api/{{lowercase (pluralize entity.name)}}/:id
+   * Retrieve a single {{lowercase entity.name}} by ID
+   */
+  async getById(req, res, next) {
+    try {
+      let query = {{capitalize entity.name}}.findById(req.params.id);
+
+      {{#each entity.relations}}
+      {{#if (eq type "belongsTo")}}
+      query = query.populate('{{name}}');
+      {{/if}}
+      {{/each}}
+
+      const item = await query;
+      if (!item) {
+        return res.status(404).json({ error: '{{capitalize entity.name}} not found' });
+      }
+
+      res.status(200).json({ success: true, data: item });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /api/{{lowercase (pluralize entity.name)}}
+   * Create a new {{lowercase entity.name}}
+   */
+  async create(req, res, next) {
+    try {
+      const item = new {{capitalize entity.name}}(req.body);
+      await item.save();
+
+      {{#if hasBelongsTo}}
+      {{#each entity.relations}}
+      {{#if (eq type "belongsTo")}}
+      await item.populate('{{name}}');
+      {{/if}}
+      {{/each}}
+      {{/if}}
+
+      res.status(201).json({ success: true, data: item });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * PUT /api/{{lowercase (pluralize entity.name)}}/:id
+   * Update an existing {{lowercase entity.name}}
+   */
+  async update(req, res, next) {
+    try {
+      let query = {{capitalize entity.name}}.findByIdAndUpdate(
+        req.params.id,
+        req.body,
+        { new: true, runValidators: true }
+      );
+
+      {{#each entity.relations}}
+      {{#if (eq type "belongsTo")}}
+      query = query.populate('{{name}}');
+      {{/if}}
+      {{/each}}
+
+      const item = await query;
+      if (!item) {
+        return res.status(404).json({ error: '{{capitalize entity.name}} not found' });
+      }
+
+      res.status(200).json({ success: true, data: item });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * DELETE /api/{{lowercase (pluralize entity.name)}}/:id
+   * Delete a {{lowercase entity.name}} by ID
+   */
+  async delete(req, res, next) {
+    try {
+      const item = await {{capitalize entity.name}}.findByIdAndDelete(req.params.id);
+      if (!item) {
+        return res.status(404).json({ error: '{{capitalize entity.name}} not found' });
+      }
+
+      res.status(200).json({ success: true, message: '{{capitalize entity.name}} deleted successfully', id: req.params.id });
+    } catch (err) {
+      next(err);
+    }
+  }
+};
+
+module.exports = {{camelCase entity.name}}Controller;

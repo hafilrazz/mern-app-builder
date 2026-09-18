@@ -1,0 +1,30 @@
+{
+  "name": "mern-app-builder",
+  "version": "1.0.0",
+  "description": "Template-based, rule-driven fullstack MERN application generator",
+  "main": "src/index.js",
+  "bin": {
+    "mern-builder": "./bin/cli.js"
+  },
+  "scripts": {
+    "start": "node --watch src/studio/server.js",
+    "studio": "node --watch src/studio/server.js",
+    "cli": "node bin/cli.js",
+    "test": "node --test test/**/*.test.js"
+  },
+  "keywords": [
+    "code-generator",
+    "mern",
+    "scaffolder",
+    "templates",
+    "express",
+    "react"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "express": "^4.21.2",
+    "handlebars": "^4.7.8"
+  }
+}

@@ -1,0 +1,145 @@
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Database, Plus, ArrowRight, Activity, CheckCircle, Shield } from 'lucide-react';
+{{#each entities}}
+import { {{camelCase name}}Api } from '../services/api';
+{{/each}}
+import api from '../services/api';
+
+export default function DashboardPage() {
+  const [counts, setCounts] = useState({
+    {{#each entities}}
+    {{lowercase name}}: 0,
+    {{/each}}
+  });
+  const [health, setHealth] = useState({ status: 'checking', database: 'unknown' });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [
+          {{#each entities}}
+          {{lowercase name}}Res,
+          {{/each}}
+          healthRes
+        ] = await Promise.all([
+          {{#each entities}}
+          {{camelCase name}}Api.getAll({ limit: 1 }).catch(() => ({ pagination: { total: 0 } })),
+          {{/each}}
+          api.get('/health').catch(() => ({ data: { status: 'error', database: 'disconnected' } }))
+        ]);
+
+        setCounts({
+          {{#each entities}}
+          {{lowercase name}}: {{lowercase name}}Res.pagination?.total || 0,
+          {{/each}}
+        });
+        setHealth(healthRes.data || { status: 'ok', database: 'connected' });
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  return (
+    <div className="space-y-8 max-w-6xl mx-auto py-2">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-gray-200 pb-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">{{app.name}}</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Welcome to your generated fullstack administration dashboard.
+          </p>
+        </div>
+
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 bg-green-50 text-green-700 px-3 py-1.5 rounded-full text-xs font-medium border border-green-200">
+            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+            <span>API Online</span>
+          </div>
+          {{#if app.auth}}
+          <div className="flex items-center space-x-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-medium border border-blue-200">
+            <Shield className="h-3.5 w-3.5" />
+            <span>Auth Protected</span>
+          </div>
+          {{/if}}
+        </div>
+      </div>
+
+      {/* Entity Stats Grid */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Entities & Data</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {{#each entities}}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">
+                  Entity
+                </span>
+                <span className="text-2xl font-bold text-gray-900">
+                  {loading ? '...' : counts['{{lowercase name}}']}
+                </span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mt-4">
+                {{capitalize (pluralize name)}}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {{fields.length}} fields, {{relations.length}} relations configured.
+              </p>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
+              <Link
+                to="/{{lowercase (pluralize name)}}/new"
+                className="inline-flex items-center space-x-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add New</span>
+              </Link>
+              <Link
+                to="/{{lowercase (pluralize name)}}"
+                className="inline-flex items-center space-x-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+              >
+                <span>View All</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </div>
+          {{/each}}
+        </div>
+      </div>
+
+      {/* System info */}
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-xs">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-4 flex items-center space-x-2">
+          <Activity className="h-4 w-4" />
+          <span>System Specifications</span>
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+          <div>
+            <span className="text-gray-500 block text-xs">Database</span>
+            <span className="font-medium capitalize text-gray-900">{{app.database}}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 block text-xs">Backend Port</span>
+            <span className="font-medium text-gray-900">{{app.port}}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 block text-xs">Frontend Port</span>
+            <span className="font-medium text-gray-900">{{app.clientPort}}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 block text-xs">Auth Security</span>
+            <span className="font-medium text-gray-900">{{#if app.auth}}JWT + Bcrypt{{else}}Disabled{{/if}}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

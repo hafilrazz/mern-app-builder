@@ -1,0 +1,95 @@
+const mongoose = require('mongoose');
+{{#if isAuthUser}}
+const bcrypt = require('bcryptjs');
+{{/if}}
+
+const {{camelCase entity.name}}Schema = new mongoose.Schema(
+  {
+    {{#each entity.fields}}
+    {{name}}: {
+      type: {{mongooseType type}},
+      {{#if required}}
+      required: [true, '{{name}} is required'],
+      {{/if}}
+      {{#if unique}}
+      unique: true,
+      {{/if}}
+      {{#if (eq type "string")}}
+      trim: true,
+      {{/if}}
+      {{#if (eq type "text")}}
+      trim: true,
+      {{/if}}
+      {{#if (hasDefault this)}}
+      default: {{defaultFormatted this}},
+      {{/if}}
+      {{#if (hasMin this)}}
+      min: {{min}},
+      {{/if}}
+      {{#if (hasMax this)}}
+      max: {{max}},
+      {{/if}}
+      {{#if (eq type "enum")}}
+      enum: {
+        values: [{{#each enumValues}}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}],
+        message: '{VALUE} is not a valid {{name}}'
+      },
+      {{/if}}
+    },
+    {{/each}}
+    {{#each entity.relations}}
+    {{#if (eq type "belongsTo")}}
+    {{name}}: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: '{{capitalize target}}',
+      {{#if required}}
+      required: [true, '{{name}} is required'],
+      {{/if}}
+    },
+    {{/if}}
+    {{#if (eq type "hasMany")}}
+    {{name}}: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: '{{capitalize target}}'
+    }],
+    {{/if}}
+    {{/each}}
+  },
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform: (doc, ret) => {
+        delete ret.__v;
+        {{#if isAuthUser}}
+        delete ret.password;
+        {{/if}}
+        return ret;
+      }
+    },
+    toObject: { virtuals: true }
+  }
+);
+
+{{#if isAuthUser}}
+// Hash password before saving
+{{camelCase entity.name}}Schema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Compare password method
+{{camelCase entity.name}}Schema.methods.comparePassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
+{{/if}}
+
+const {{capitalize entity.name}} = mongoose.model('{{capitalize entity.name}}', {{camelCase entity.name}}Schema);
+
+module.exports = {{capitalize entity.name}};

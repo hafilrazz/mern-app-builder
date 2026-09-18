@@ -1,0 +1,278 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
+import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
+import { {{camelCase entity.name}}Api{{#each entity.relations}}{{#if (eq type "belongsTo")}}, {{camelCase target}}Api{{/if}}{{/each}} } from '../services/api';
+
+export default function {{capitalize entity.name}}FormPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const isEdit = Boolean(id);
+
+  const [formData, setFormData] = useState({
+    {{#each entity.fields}}
+    {{name}}: {{#if (eq type "boolean")}}{{defaultFormatted this}}{{else if (eq type "number")}}{{defaultFormatted this}}{{else if (hasDefault this)}}'{{defaultValue}}'{{else}}''{{/if}},
+    {{/each}}
+    {{#each entity.relations}}
+    {{#if (eq type "belongsTo")}}
+    {{name}}: '',
+    {{/if}}
+    {{/each}}
+  });
+
+  {{#each entity.relations}}
+  {{#if (eq type "belongsTo")}}
+  const [{{camelCase target}}Options, set{{capitalize target}}Options] = useState([]);
+  {{/if}}
+  {{/each}}
+
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(isEdit);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    async function loadOptionsAndData() {
+      try {
+        {{#each entity.relations}}
+        {{#if (eq type "belongsTo")}}
+        const {{camelCase target}}Res = await {{camelCase target}}Api.getAll({ limit: 100 }).catch(() => ({ data: [] }));
+        set{{capitalize target}}Options({{camelCase target}}Res.data || []);
+        {{/if}}
+        {{/each}}
+
+        if (isEdit) {
+          const res = await {{camelCase entity.name}}Api.getById(id);
+          const item = res.data;
+          setFormData({
+            {{#each entity.fields}}
+            {{#if (eq type "date")}}
+            {{name}}: item.{{name}} ? item.{{name}}.substring(0, 10) : '',
+            {{else if (eq type "boolean")}}
+            {{name}}: Boolean(item.{{name}}),
+            {{else}}
+            {{name}}: item.{{name}} ?? '',
+            {{/if}}
+            {{/each}}
+            {{#each entity.relations}}
+            {{#if (eq type "belongsTo")}}
+            {{name}}: item.{{name}}?._id || item.{{name}} || '',
+            {{/if}}
+            {{/each}}
+          });
+        }
+      } catch (err) {
+        setError(err.response?.data?.error || 'Failed to load form data');
+      } finally {
+        setFetching(false);
+      }
+    }
+
+    loadOptionsAndData();
+  }, [id, isEdit]);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      // Prepare payload with typed casting
+      const payload = { ...formData };
+      {{#each entity.fields}}
+      {{#if (eq type "number")}}
+      if (payload.{{name}} !== '') {
+        payload.{{name}} = Number(payload.{{name}});
+      }
+      {{/if}}
+      {{#if (eq type "date")}}
+      if (!payload.{{name}}) {
+        delete payload.{{name}};
+      }
+      {{/if}}
+      {{/each}}
+      {{#each entity.relations}}
+      {{#if (eq type "belongsTo")}}
+      if (!payload.{{name}}) {
+        delete payload.{{name}};
+      }
+      {{/if}}
+      {{/each}}
+
+      if (isEdit) {
+        await {{camelCase entity.name}}Api.update(id, payload);
+      } else {
+        await {{camelCase entity.name}}Api.create(payload);
+      }
+
+      navigate('/{{lowercase (pluralize entity.name)}}');
+    } catch (err) {
+      setError(err.response?.data?.error || err.response?.data?.details?.[0] || 'Failed to save {{lowercase entity.name}}');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (fetching) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto py-2 space-y-6">
+      <div className="flex items-center space-x-3">
+        <Link
+          to="/{{lowercase (pluralize entity.name)}}"
+          className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+            {isEdit ? 'Edit {{capitalize entity.name}}' : 'Create New {{capitalize entity.name}}'}
+          </h1>
+          <p className="text-sm text-gray-500">
+            {isEdit ? 'Update existing {{lowercase entity.name}} details.' : 'Fill in the information below to create a new {{lowercase entity.name}}.'}
+          </p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-center space-x-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          <AlertCircle className="h-5 w-5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-xl p-6 shadow-xs space-y-5">
+        {{#each entity.fields}}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {{capitalize name}} {{#if required}}<span className="text-red-500">*</span>{{/if}}
+          </label>
+
+          {{#if (eq type "string")}}
+          <input
+            type="text"
+            name="{{name}}"
+            value={formData['{{name}}']}
+            onChange={handleChange}
+            {{#if required}}required{{/if}}
+            className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter {{lowercase name}}"
+          />
+          {{else if (eq type "text")}}
+          <textarea
+            name="{{name}}"
+            rows={4}
+            value={formData['{{name}}']}
+            onChange={handleChange}
+            {{#if required}}required{{/if}}
+            className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter {{lowercase name}}..."
+          />
+          {{else if (eq type "number")}}
+          <input
+            type="number"
+            name="{{name}}"
+            value={formData['{{name}}']}
+            onChange={handleChange}
+            {{#if (ne min null)}}min="{{min}}"{{/if}}
+            {{#if (ne max null)}}max="{{max}}"{{/if}}
+            {{#if required}}required{{/if}}
+            className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="0"
+          />
+          {{else if (eq type "date")}}
+          <input
+            type="date"
+            name="{{name}}"
+            value={formData['{{name}}']}
+            onChange={handleChange}
+            {{#if required}}required{{/if}}
+            className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {{else if (eq type "enum")}}
+          <select
+            name="{{name}}"
+            value={formData['{{name}}']}
+            onChange={handleChange}
+            {{#if required}}required{{/if}}
+            className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Select {{lowercase name}}</option>
+            {{#each enumValues}}
+            <option value="{{this}}">{{this}}</option>
+            {{/each}}
+          </select>
+          {{else if (eq type "boolean")}}
+          <div className="flex items-center space-x-2 mt-2">
+            <input
+              type="checkbox"
+              id="{{name}}"
+              name="{{name}}"
+              checked={formData['{{name}}']}
+              onChange={handleChange}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="{{name}}" className="text-sm text-gray-700">
+              Enable {{capitalize name}}
+            </label>
+          </div>
+          {{/if}}
+        </div>
+        {{/each}}
+
+        {{#each entity.relations}}
+        {{#if (eq type "belongsTo")}}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {{capitalize name}} ({{capitalize target}}) {{#if required}}<span className="text-red-500">*</span>{{/if}}
+          </label>
+          <select
+            name="{{name}}"
+            value={formData['{{name}}']}
+            onChange={handleChange}
+            {{#if required}}required{{/if}}
+            className="w-full px-3.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Select {{capitalize target}}</option>
+            { {{camelCase target}}Options.map(opt => (
+              <option key={opt._id} value={opt._id}>
+                {opt.name || opt.title || opt.email || opt._id}
+              </option>
+            ))}
+          </select>
+        </div>
+        {{/if}}
+        {{/each}}
+
+        <div className="pt-4 border-t border-gray-200 flex items-center justify-end space-x-3">
+          <Link
+            to="/{{lowercase (pluralize entity.name)}}"
+            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex items-center space-x-2 rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 shadow-sm disabled:opacity-50 transition-colors"
+          >
+            <Save className="h-4 w-4" />
+            <span>{loading ? 'Saving...' : 'Save {{capitalize entity.name}}'}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

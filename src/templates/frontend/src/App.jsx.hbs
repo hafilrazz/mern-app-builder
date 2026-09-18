@@ -1,0 +1,114 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+{{#if app.auth}}
+import { AuthProvider, ProtectedRoute } from './context/AuthContext';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+{{/if}}
+import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
+import DashboardPage from './pages/DashboardPage';
+
+{{#each entities}}
+import {{capitalize name}}ListPage from './pages/{{capitalize name}}ListPage';
+import {{capitalize name}}FormPage from './pages/{{capitalize name}}FormPage';
+import {{capitalize name}}DetailPage from './pages/{{capitalize name}}DetailPage';
+{{/each}}
+
+function AppLayout({ children }) {
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <Navbar />
+      <div className="flex flex-1">
+        <Sidebar />
+        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      {{#if app.auth}}
+      <AuthProvider>
+        <Routes>
+          {/* Public Auth Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+
+          {/* Protected Application Routes */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <DashboardPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          {{#each entities}}
+          <Route
+            path="/{{lowercase (pluralize name)}}"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <{{capitalize name}}ListPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/{{lowercase (pluralize name)}}/new"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <{{capitalize name}}FormPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/{{lowercase (pluralize name)}}/:id/edit"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <{{capitalize name}}FormPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/{{lowercase (pluralize name)}}/:id"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <{{capitalize name}}DetailPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          {{/each}}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+      {{else}}
+      <AppLayout>
+        <Routes>
+          <Route path="/" element={<DashboardPage />} />
+          {{#each entities}}
+          <Route path="/{{lowercase (pluralize name)}}" element={<{{capitalize name}}ListPage />} />
+          <Route path="/{{lowercase (pluralize name)}}/new" element={<{{capitalize name}}FormPage />} />
+          <Route path="/{{lowercase (pluralize name)}}/:id/edit" element={<{{capitalize name}}FormPage />} />
+          <Route path="/{{lowercase (pluralize name)}}/:id" element={<{{capitalize name}}DetailPage />} />
+          {{/each}}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AppLayout>
+      {{/if}}
+    </Router>
+  );
+}

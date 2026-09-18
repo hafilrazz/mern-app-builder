@@ -1,0 +1,23 @@
+const express = require('express');
+const router = express.Router();
+const {{camelCase entity.name}}Controller = require('../controllers/{{camelCase entity.name}}Controller');
+{{#if app.auth}}
+const { authenticate } = require('../middleware/auth');
+{{/if}}
+
+// GET all {{lowercase (pluralize entity.name)}}
+router.get('/', {{camelCase entity.name}}Controller.getAll);
+
+// GET single {{lowercase entity.name}} by ID
+router.get('/:id', {{camelCase entity.name}}Controller.getById);
+
+// POST create {{lowercase entity.name}}
+router.post('/', {{#if app.auth}}authenticate, {{/if}}{{camelCase entity.name}}Controller.create);
+
+// PUT update {{lowercase entity.name}}
+router.put('/:id', {{#if app.auth}}authenticate, {{/if}}{{camelCase entity.name}}Controller.update);
+
+// DELETE remove {{lowercase entity.name}}
+router.delete('/:id', {{#if app.auth}}authenticate, {{/if}}{{camelCase entity.name}}Controller.delete);
+
+module.exports = router;

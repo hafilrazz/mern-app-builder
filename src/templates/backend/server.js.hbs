@@ -1,0 +1,87 @@
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+
+const app = express();
+const PORT = process.env.PORT || {{app.port}};
+
+// Middleware
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:{{app.clientPort}}',
+  credentials: true
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Database Connection
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/{{lowercase app.name}}';
+
+mongoose.connect(MONGODB_URI)
+  .then(() => {
+    console.log(`[Database] Connected successfully to MongoDB: ${MONGODB_URI}`);
+  })
+  .catch((err) => {
+    console.error('[Database] MongoDB connection error:', err.message);
+  });
+
+// Health check route
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    app: '{{app.name}}',
+    timestamp: new Date().toISOString(),
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
+});
+
+{{#if app.auth}}
+// Authentication routes
+app.use('/api/auth', require('./routes/authRoutes'));
+{{/if}}
+
+// Resource routes
+{{#each entities}}
+app.use('/api/{{lowercase (pluralize name)}}', require('./routes/{{camelCase name}}Routes'));
+{{/each}}
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Endpoint not found', path: req.originalUrl });
+});
+
+// Centralized error handler
+app.use((err, req, res, next) => {
+  console.error('[Server Error]', err);
+
+  // Mongoose validation error
+  if (err.name === 'ValidationError') {
+    const errors = Object.values(err.errors).map(e => e.message);
+    return res.status(400).json({ error: 'Validation Error', details: errors });
+  }
+
+  // Mongoose duplicate key error
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue)[0];
+    return res.status(400).json({ error: `Duplicate value for field '${field}'` });
+  }
+
+  // Mongoose invalid ObjectId error
+  if (err.name === 'CastError' && err.kind === 'ObjectId') {
+    return res.status(400).json({ error: `Invalid ID format for ${err.path}` });
+  }
+
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    error: err.message || 'Internal Server Error'
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`========================================`);
+  console.log(`🚀 {{app.name}} API Server running on port ${PORT}`);
+  console.log(`👉 http://localhost:${PORT}/api/health`);
+  console.log(`========================================`);
+});
+
+module.exports = app;
